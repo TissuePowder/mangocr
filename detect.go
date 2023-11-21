@@ -17,7 +17,7 @@ func init() {
 	_ = os.Open
 }
 
-func detectText(w io.Writer, file string) error {
+func detectTextLocal(w io.Writer, file string) error {
 	ctx := context.Background()
 
 	client, err := vision.NewImageAnnotatorClient(ctx)

@@ -3,17 +3,18 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
+	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func main() {
 	os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", "keyfile.json")
 
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s <path-to-image>\n", filepath.Base(os.Args[0]))
-		fmt.Fprintf(os.Stderr, "Pass either a path to a local file.\n")
+		fmt.Fprintf(os.Stderr, "Usage: %s <path-to-image-or-directory>\n", filepath.Base(os.Args[0]))
+		fmt.Fprintf(os.Stderr, "Pass a path to a local file.\n")
 	}
 	flag.Parse()
 
@@ -24,16 +25,42 @@ func main() {
 	}
 
 	path := flag.Arg(0)
+	fi, err := os.Stat(path)
 
-	sample := struct {
-		name  string
-		local func(io.Writer, string) error
-	}{"detectText", detectText}
+	images := []string{}
 
-	err := sample.local(os.Stdout, path)
+	if os.IsNotExist(err) {
+		log.Fatal(err)
+	}
+	if fi.IsDir() {
+		entries, _ := os.ReadDir(path)
+		for _, entry := range entries {
+			images = append(images, filepath.Join(path, entry.Name()))
+		}
+	} else {
+		images = append(images, path)
+	}
 
-	if err != nil {
-		fmt.Println("Error:", err)
+	// fmt.Println(images)
+
+	for _, image := range images {
+
+		txt := strings.TrimSuffix(filepath.Base(image), filepath.Ext(image)) + ".txt"
+		txtPath := filepath.Join("ocr", txt)
+		txtfile, err := os.OpenFile(txtPath, os.O_RDWR|os.O_CREATE, 0644)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if err := detectTextLocal(txtfile, image); err != nil {
+			log.Fatal(err)
+		}
+		if err := os.Remove(image); err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Println(txtPath)
 	}
 
 }
